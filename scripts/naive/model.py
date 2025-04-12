@@ -1,23 +1,29 @@
+import pandas as pd
+import numpy as np
 from ..util.model import Model
+from ..etl.etl import extract
 
 class NaiveModel(Model):
+    '''
+    A simple model that predicts the rating of a recipe based on the average rating of all recipes
+    '''
     def __init__(self):
         '''
         Initialize the model
         '''
-        super().__init__()
+        self.recipes_df, self.reviews_df = extract()
 
-    def predict(self, X):
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
         '''
         Run inference on the model
+
+        Parameters:
+            X (pd.DataFrame): dataframe of user and recipe ids for which to predict ratings
+
+        Returns:
+            np.ndarray: The predicted ratings
         '''
-        pass    
-    
-    def evaluate(self, X, y):
-        '''
-        Evaluate the model
-        '''
-        pass
+        return pd.merge(X, self.recipes_df[['RecipeId', 'AggregatedRating']], on='RecipeId', how='left')['AggregatedRating'].to_numpy()
     
     def __save(self):
         '''
@@ -36,19 +42,14 @@ class NaiveModel(Model):
         '''
         Get the instance of the model
         '''
-        try:
-            print(f"{NaiveModel.__name__} found, loading instance")
-            return NaiveModel.__load()
-        except:
-            print(f"{NaiveModel.__name__} not found, creating new instance")
-            return NaiveModel.__create()
+        return NaiveModel.__create()
 
     @staticmethod
     def __load():
         '''
         Load the model
         '''
-        pass
+        raise NotImplementedError("Naive model does not support loading")
 
     @staticmethod
     def __create():

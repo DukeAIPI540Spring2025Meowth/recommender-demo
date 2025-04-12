@@ -1,3 +1,5 @@
+import pandas as pd
+import numpy as np
 from ..util.model import Model
 
 class TraditionalModel(Model):
@@ -7,15 +9,15 @@ class TraditionalModel(Model):
         '''
         super().__init__()
 
-    def predict(self, X):
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
         '''
         Run inference on the model
-        '''
-        pass    
-    
-    def evaluate(self, X, y):
-        '''
-        Evaluate the model
+
+        Parameters:
+            X (pd.DataFrame): dataframe of user and recipe ids for which to predict ratings
+
+        Returns:
+            np.ndarray: The predicted ratings
         '''
         pass
     
@@ -29,7 +31,7 @@ class TraditionalModel(Model):
         '''
         Train the model
         '''
-        pass    
+        pass
 
     @staticmethod
     def get_instance():
