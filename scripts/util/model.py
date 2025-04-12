@@ -1,3 +1,6 @@
+import numpy as np
+import pandas as pd
+
 class Model:
     '''
     Abstract class for all models
@@ -9,17 +12,30 @@ class Model:
         self.__train()
         self.__save()
 
-    def predict(self, X):
+    def predict(self, X: pd.DataFrame) -> np.ndarray:
         '''
         Run inference on the model
+
+        Parameters:
+            X (pd.DataFrame): dataframe of user and recipe ids for which to predict ratings
+
+        Returns:
+            np.ndarray: The predicted ratings
         '''
         raise NotImplementedError("Model is an abstract class")
 
-    def evaluate(self, X, y):
+    def evaluate(self, X: pd.DataFrame, y: pd.DataFrame) -> float:
         '''
         Evaluate the model
+
+        Parameters:
+            X (pd.DataFrame): dataframe of user and recipe ids for which to predict ratings
+            y (pd.DataFrame): dataframe of ground truth ratings
+
+        Returns:
+            float: The RMSE of the model
         '''
-        raise NotImplementedError("Model is an abstract class")
+        return np.sqrt(np.mean((self.predict(X) - y) ** 2))
         
     def __save(self):
         '''

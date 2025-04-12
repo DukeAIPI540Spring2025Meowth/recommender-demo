@@ -32,3 +32,12 @@ python setup.py
 ```bash
 deactivate
 ```
+
+## Running the Evaluation
+
+To evaluate the recommender system, run:
+```bash
+python -m scripts.eval.evaluate
+```
+
+This will run the evaluation module and output the performance metrics of the recommender system.

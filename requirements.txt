@@ -3,6 +3,7 @@ python-dotenv >= 1.1.0
 
 # Data
 kagglehub >= 0.3.11
+numpy >= 2.2.4
 pandas >= 2.2.3
 
 # Visualization
