@@ -1,7 +1,7 @@
 import pandas as pd
 from ..etl.etl import extract
 from ..util.model import Model
-from ..etl.etl import train_test_split_reviews
+from ..etl.etl import get_train_test_splits
 from ..naive.model import NaiveModel
 from ..traditional.model import TraditionalModel
 from ..deep.model import DeepLearningModel
@@ -18,7 +18,7 @@ def main():
     Evaluate the three modeling approaches
     '''
     recipes_df, reviews_df = extract()
-    X_train, X_test, y_train, y_test = train_test_split_reviews(reviews_df, test_size=0.2)
+    X_train, X_test, y_train, y_test = get_train_test_splits()
     print("Evaluating...")
     models = [
         NaiveModel.get_instance(),

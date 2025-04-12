@@ -23,7 +23,10 @@ class NaiveModel(Model):
         Returns:
             np.ndarray: The predicted ratings
         '''
-        return pd.merge(X, self.recipes_df[['RecipeId', 'AggregatedRating']], on='RecipeId', how='left')['AggregatedRating'].to_numpy()
+        # Calculate mean rating per recipe from reviews
+        recipe_ratings = self.reviews_df.groupby('recipe_id')['rating'].mean().reset_index()
+        # Merge with input dataframe
+        return pd.merge(X, recipe_ratings, on='recipe_id', how='left')['rating'].to_numpy()
     
     def __save(self):
         '''
