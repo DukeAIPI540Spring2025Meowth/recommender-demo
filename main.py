@@ -22,14 +22,34 @@ reviews_df = pd.read_csv('data/reviews.csv')  # Update the path as necessary
 # Initialize the NaiveModel
 model = NaiveModel()
 
-input_data = reviews_df[['RecipeId']]
+mean_ratings = reviews_df.groupby('recipe_id')['rating'].mean().reset_index()  # Assuming 'Rating' is the column for ratings
+mean_ratings.rename(columns={'rating': 'mean_rating'}, inplace=True)
 
+recipes_df = recipes_df.merge(mean_ratings, left_on='id', right_on='recipe_id', how='left')  # Merge mean ratings into recipes_df
 
+user_id = 'test_user'
+input_data = pd.DataFrame({
+    'recipe_id': recipes_df['id'],  # Use RecipeId from recipes_df
+    'user_id': user_id  # Set user_id to 'test_user' for all rows
+})
+
+predicted = model.predict(input_data)
+
+recipes_df['predicted_rating'] = predicted
+recipes_df = recipes_df.sort_values(by='predicted_rating', ascending=False)  # Sort in descending order
 
 # Function to filter recipes based on dietary restrictions
-def filter_recipes(dietary_restriction):
+# def filter_recipes(dietary_restriction):
 
-    return recipes_df  # Placeholder
+#     return recipes_df  # Placeholder
+
+# Initialize the number of entries to display in session state
+if 'num_entries' not in st.session_state:
+    st.session_state.num_entries = 10  # Default to 10 entries
+
+# Function to load more entries
+def load_more():
+    st.session_state.num_entries += 10  # Increase the number of entries by 10
 
 # ------------------------ Custom CSS ------------------------
 st.markdown("""
@@ -86,36 +106,59 @@ st.markdown("""
 # ------------------------ App UI ------------------------
 st.title("🥗 RecipeMe – Smart Recipe Recommender")
 
-# User input for dietary restrictions
-dietary_restriction = st.selectbox(
-    "Filter by dietary preference:",
-    ["Vegan", "Vegetarian", "Gluten-free", "Diabetic-friendly", "Dairy-free"]
-)
+# # User input for dietary restrictions
+# dietary_restriction = st.selectbox(
+#     "Filter by dietary preference:",
+#     ["Vegan", "Vegetarian", "Gluten-free", "Diabetic-friendly", "Dairy-free"]
+# )
 
 # Filter recipes based on user input
-filtered_recipes = filter_recipes(dietary_restriction)
+# filtered_recipes = filter_recipes(dietary_restriction)
 
 # Display recipes
 st.subheader("🍽️ Recommended Recipes")
 
-for index, row in filtered_recipes.iterrows():
-    recipe_name = row['RecipeId']
+
+
+for index, row in recipes_df.head(st.session_state.num_entries).iterrows():
+    recipe_id = str(row['id'])
+    recipe_name = row['name']
     ingredients = row['ingredients']
-    time_to_cook = row['CookTime']
-    average_rating = row['average_rating']
+    time_to_cook = row['minutes']
+    average_rating = row['mean_rating']
+    user_rating = st.session_state.get(f"userRating_{recipe_id}", 0)  # Get user rating from session state
+
+    # Update reviews_df with the new user rating
+    if user_rating > 0:  # Only save if the user has rated
+        new_review = pd.DataFrame({
+            'id': [recipe_id],
+            'user_id': [user_id],
+            'rating': [user_rating]
+        })
+        reviews_df = pd.concat([reviews_df, new_review], ignore_index=True)
+
+        # Recalculate mean ratings after user input
+        mean_ratings = reviews_df.groupby('id')['rating'].mean().reset_index()  # Group by 'id' to get mean ratings
+        mean_ratings.rename(columns={'rating': 'mean_rating'}, inplace=True)
+
+        # Merge updated mean ratings into recipes_df
+        recipes_df = recipes_df.merge(mean_ratings, left_on='id', right_on='id', how='left')  # Merge mean ratings into recipes_df
+
+        # Sort recipes_df by the new mean_rating
+        recipes_df = recipes_df.sort_values(by='mean_rating', ascending=False)  # Sort in descending order
 
     with st.container():
-        st.markdown('<div class="recipe-card">', unsafe_allow_html=True)
+        #st.markdown('<div class="recipe-card">', unsafe_allow_html=True)
         
         st.markdown(f'<div class="recipe-title">{recipe_name}</div>', unsafe_allow_html=True)
         st.markdown(f'<div class="ingredients"><strong>Ingredients:</strong> {ingredients}</div>', unsafe_allow_html=True)
-        st.markdown(f'<div class="time">⏱️ {time_to_cook}</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="time">⏱️ {time_to_cook} min</div>', unsafe_allow_html=True)
         
         col1, col2 = st.columns(2)
         with col1:
-            st_star_rating(label="⭐ Average Rating", maxValue=5, defaultValue=average_rating, key=recipe_name, read_only=True)
+            st_star_rating(label="⭐ Average Rating", maxValue=5, defaultValue=average_rating, key=recipe_id, read_only=True)
         with col2:
-            st_star_rating(label="🤔 Your Experience", maxValue=5, defaultValue=0, key=recipe_name + '_userRating')
+            st_star_rating(label="🤔 Your Experience", maxValue=5, defaultValue=0, key=recipe_id + '_userRating')
         
         # Comment box
         comment = st.text_area("💬 Leave a comment (optional):", placeholder="What did you like or dislike?", key=f"comment_{index}", label_visibility="collapsed")
@@ -125,3 +168,7 @@ for index, row in filtered_recipes.iterrows():
             st.info(f"More details for *{recipe_name}* will appear here soon!")
 
         st.markdown('</div>', unsafe_allow_html=True)
+
+# Load more button
+if st.button("Load more"):
+    load_more()  # Call the function to load more entries
