@@ -159,14 +159,6 @@ st.markdown("""
 # ------------------------ App UI ------------------------
 st.title("🥗 RecipeMe – Smart Recipe Recommender")
 
-# # User input for dietary restrictions
-# dietary_restriction = st.selectbox(
-#     "Filter by dietary preference:",
-#     ["Vegan", "Vegetarian", "Gluten-free", "Diabetic-friendly", "Dairy-free"]
-# )
-
-# Filter recipes based on user input
-# filtered_recipes = filter_recipes(dietary_restriction)
 
 # Display recipes
 st.subheader("🍽️ Recommended Recipes")
@@ -226,10 +218,7 @@ for index, row in recipes_df.head(st.session_state.num_entries).iterrows():
             # Check if rating has changed and update it
             if user_stars != user_rating_default and user_stars > 0:
                 update_rating(recipe_id, user_stars)
-        
-        # Comment box
-        # comment = st.text_area("💬 Leave a comment (optional):", placeholder="What did you like or dislike?", key=f"comment_{index}", label_visibility="collapsed")
-        # st.markdown('<div class="comment-box"></div>', unsafe_allow_html=True)
+    
 
         if st.button(f"View Details for {recipe_name}", key=f"details_{index}"):
             # Format steps nicely
