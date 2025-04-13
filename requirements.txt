@@ -12,6 +12,7 @@ seaborn >= 0.13.0
 
 # Machine Learning
 scikit-learn >= 1.6.1
+xgboost
 
 # Application development
 streamlit >= 1.44.1

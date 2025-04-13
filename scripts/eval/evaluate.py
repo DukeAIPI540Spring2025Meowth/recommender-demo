@@ -1,10 +1,16 @@
 import pandas as pd
-from ..etl.etl import extract
-from ..util.model import Model
-from ..etl.etl import train_test_split_reviews
-from ..naive.model import NaiveModel
-from ..traditional.model import TraditionalModel
-from ..deep.model import DeepLearningModel
+import os
+import sys
+
+# Adding project root to path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+from scripts.etl.etl import extract
+from scripts.util.model import Model
+from scripts.etl.etl import get_train_test_splits
+from scripts.naive.model import NaiveModel
+from scripts.traditional.model import TraditionalModel
+from scripts.deep.model import DeepLearningModel
 
 def evaluate_model(model: Model, model_name: str, X_test: pd.DataFrame, y_test: pd.DataFrame) -> None:
     '''
@@ -18,11 +24,11 @@ def main():
     Evaluate the three modeling approaches
     '''
     recipes_df, reviews_df = extract()
-    X_train, X_test, y_train, y_test = train_test_split_reviews(reviews_df, test_size=0.2)
+    X_train, X_test, y_train, y_test = get_train_test_splits()
     print("Evaluating...")
     models = [
         NaiveModel.get_instance(),
-        # TraditionalModel.get_instance(),
+        TraditionalModel.get_instance(),
         # DeepLearningModel.get_instance()
     ]
     for model in models:
