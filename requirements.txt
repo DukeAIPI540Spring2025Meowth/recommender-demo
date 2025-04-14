@@ -16,3 +16,4 @@ scikit-learn >= 1.6.1
 
 # Application development
 streamlit >= 1.44.1
+st-star-rating == 0.0.6

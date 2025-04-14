@@ -1,13 +1,10 @@
 import pandas as pd
-import os
-import sys
-
-from scripts.etl.etl import extract
-from scripts.util.model import Model
-from scripts.etl.etl import get_train_test_splits
-from scripts.naive.model import NaiveModel
-from scripts.traditional.model import TraditionalModel
-from scripts.deep.model import DeepLearningModel
+from ..etl.etl import extract
+from ..util.model import Model
+from ..etl.etl import get_train_test_splits
+from ..naive.model import NaiveModel
+from ..traditional.model import TraditionalModel
+from ..deep.model import DeepLearningModel
 
 def evaluate_model(model: Model, model_name: str, X_test: pd.DataFrame, y_test: pd.DataFrame) -> None:
     '''
