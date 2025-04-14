@@ -1,135 +1,175 @@
 import pandas as pd
 import numpy as np
-import joblib
 import os
 import sys
-from xgboost import XGBRegressor
-from sklearn.preprocessing import LabelEncoder
+import joblib
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import mean_squared_error
 
-# Adding project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
-from scripts.util.model import Model
 from scripts.etl.etl import extract, get_train_test_splits
+from scripts.util.model import Model
+
 
 class TraditionalModel(Model):
     """
-    TraditionalModel implements a user-recipe rating predictor using XGBoost.
-    It encodes user and recipe IDs, trains a regression model, and supports saving/loading.
+    TraditionalModel: A KNN-based regression model for predicting user-recipe ratings.
+    This implementation uses GridSearchCV to optimize hyperparameters and includes
+    feature engineering based on user and recipe average ratings.
     """
 
     def __init__(self):
         """
-        Initialize the model and load raw data.
-
-        Attributes:
-            model: Trained XGBoostRegressor instance
-            user_encoder: LabelEncoder for user_id
-            item_encoder: LabelEncoder for recipe_id
-            recipes_df: DataFrame of all recipes
-            full_reviews_df: DataFrame of all interactions
+        Initializing the TraditionalModel by loading and preparing the data,
+        initializing encoders and scalers.
         """
         self.model = None
+        self.scaler = StandardScaler()
         self.user_encoder = LabelEncoder()
-        self.item_encoder = LabelEncoder()
-        self.recipes_df, self.full_reviews_df = extract()
+        self.recipe_encoder = LabelEncoder()
+        self.recipes_df, self.reviews_df = extract()
 
     def __train(self):
         """
-        Train the XGBoost regression model on encoded user-recipe pairs.
-        Saves the trained model and encoders to disk.
+        Training the model using GridSearchCV on KNeighborsRegressor.
+        Includes encoding and scaling, and adds additional features such as
+        user and recipe average ratings.
         """
-        X_train, X_test, y_train, y_test = get_train_test_splits()
+        df = self.reviews_df.copy()
 
-        # Fitting encoders on the entire dataset to prevent unseen labels
-        self.user_encoder.fit(self.full_reviews_df['user_id'])
-        self.item_encoder.fit(self.full_reviews_df['recipe_id'])
+        # Feature engineering
+        user_avg_rating = df.groupby('user_id')['rating'].mean().rename('user_avg_rating')
+        recipe_avg_rating = df.groupby('recipe_id')['rating'].mean().rename('recipe_avg_rating')
+        df = df.merge(user_avg_rating, on='user_id', how='left')
+        df = df.merge(recipe_avg_rating, on='recipe_id', how='left')
 
-        # Encoding user_id and recipe_id for training
-        X_train_encoded = pd.DataFrame({
-            'User': self.user_encoder.transform(X_train['user_id']),
-            'Item': self.item_encoder.transform(X_train['recipe_id'])
-        })
-        X_test_encoded = pd.DataFrame({
-            'User': self.user_encoder.transform(X_test['user_id']),
-            'Item': self.item_encoder.transform(X_test['recipe_id'])
-        })
+        # Encoding user and recipe IDs
+        df['user_id_enc'] = self.user_encoder.fit_transform(df['user_id'])
+        df['recipe_id_enc'] = self.recipe_encoder.fit_transform(df['recipe_id'])
 
-        # Initializing and train XGBoost Regressor
-        self.model = XGBRegressor(
-            n_estimators=300,
-            learning_rate=0.1,
-            max_depth=6,
-            objective='reg:squarederror',
-            random_state=42,
-            n_jobs=-1
+        # Preparing features and target
+        features = ['user_id_enc', 'recipe_id_enc', 'user_avg_rating', 'recipe_avg_rating']
+        X = df[features]
+        y = df['rating']
+
+        # Splitting into train, validation, test
+        X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
+        X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
+
+        # Scaling features
+        X_train_scaled = self.scaler.fit_transform(X_train)
+        X_val_scaled = self.scaler.transform(X_val)
+        X_test_scaled = self.scaler.transform(X_test)
+
+        # Defining model and parameter grid
+        knn = KNeighborsRegressor()
+        param_grid = {
+            'n_neighbors': range(3, 21),
+            'weights': ['uniform', 'distance'],
+            'metric': ['euclidean', 'manhattan']
+        }
+
+        # Hyperparameter tuning
+        grid_search = GridSearchCV(
+            knn,
+            param_grid,
+            cv=5,
+            scoring='neg_mean_squared_error',
+            n_jobs=-1,
+            verbose=1
         )
-        self.model.fit(X_train_encoded, y_train)
+        grid_search.fit(X_train_scaled, y_train)
+        self.model = grid_search.best_estimator_
 
-        # Evaluating the model performance
-        preds = self.model.predict(X_test_encoded)
+        # Evaluating on test set
+        preds = self.model.predict(X_test_scaled)
         rmse = np.sqrt(mean_squared_error(y_test, preds))
-        
-        # print(f"TraditionalModel trained. RMSE on test set: {rmse:.4f}")
+        print(f"TraditionalModel (GridSearch KNN) Test RMSE: {rmse:.4f}")
 
         self.__save()
 
     def predict(self, X: pd.DataFrame) -> np.ndarray:
         """
-        Predict ratings for a given set of user-recipe pairs.
+        Predicting ratings for given user-recipe pairs using the trained model.
 
-        Args:
-            X (pd.DataFrame): A DataFrame with two columns:
-                - 'user_id': The user identifier
-                - 'recipe_id': The recipe identifier
+        Parameters:
+            X (pd.DataFrame): DataFrame with 'user_id' and 'recipe_id'
 
         Returns:
-            np.ndarray: An array of predicted ratings.
+            np.ndarray: Predicted ratings
         """
-        if self.model is None:
-            raise ValueError("Model not trained or loaded")
+        df = X.copy()
 
-        # Encoding user and recipe IDs before prediction
-        X_encoded = pd.DataFrame({
-            'User': self.user_encoder.transform(X['user_id']),
-            'Item': self.item_encoder.transform(X['recipe_id'])
-        })
+        # Generating average rating features on the fly
+        df['user_avg_rating'] = df['user_id'].map(
+            self.reviews_df.groupby('user_id')['rating'].mean()
+        )
+        df['recipe_avg_rating'] = df['recipe_id'].map(
+            self.reviews_df.groupby('recipe_id')['rating'].mean()
+        )
 
-        return self.model.predict(X_encoded)
+        # Filling missing values if any
+        df['user_avg_rating'] = df['user_avg_rating'].fillna(4.57)
+        df['recipe_avg_rating'] = df['recipe_avg_rating'].fillna(4.57)
+
+        # Encoing categorical IDs
+        df['user_id_enc'] = self.user_encoder.transform(df['user_id'])
+        df['recipe_id_enc'] = self.recipe_encoder.transform(df['recipe_id'])
+
+        # Scaling features
+        features = ['user_id_enc', 'recipe_id_enc', 'user_avg_rating', 'recipe_avg_rating']
+        X_scaled = self.scaler.transform(df[features])
+        return self.model.predict(X_scaled)
+
+    def evaluate(self, X: pd.DataFrame, y_true: pd.Series) -> float:
+        """
+        Evaluating the model on a given dataset.
+
+        Parameters:
+            X (pd.DataFrame): Features (must contain user_id, recipe_id)
+            y_true (pd.Series): True ratings
+
+        Returns:
+            float: Root Mean Squared Error (RMSE)
+        """
+        y_pred = self.predict(X)
+        return np.sqrt(mean_squared_error(y_true, y_pred))
 
     def __save(self):
         """
-        Save the trained model and encoders to disk under scripts/models/
+        Saving the trained model, encoders, and scaler to disk.
         """
         os.makedirs("scripts/models", exist_ok=True)
         joblib.dump(self.model, "scripts/models/traditional_model.pkl")
+        joblib.dump(self.scaler, "scripts/models/scaler.pkl")
         joblib.dump(self.user_encoder, "scripts/models/user_encoder.pkl")
-        joblib.dump(self.item_encoder, "scripts/models/item_encoder.pkl")
-        print(" TraditionalModel and encoders saved to scripts/models/")
+        joblib.dump(self.recipe_encoder, "scripts/models/recipe_encoder.pkl")
+        print("Model, scaler, and encoders saved.")
 
     @staticmethod
     def __load():
         """
-        Load a previously saved model and encoders from scripts/models/
+        Loading the saved TraditionalModel from disk.
 
         Returns:
-            TraditionalModel: A model instance with loaded state.
+            TraditionalModel: A loaded model instance
         """
         model = TraditionalModel()
         model.model = joblib.load("scripts/models/traditional_model.pkl")
+        model.scaler = joblib.load("scripts/models/scaler.pkl")
         model.user_encoder = joblib.load("scripts/models/user_encoder.pkl")
-        model.item_encoder = joblib.load("scripts/models/item_encoder.pkl")
-        print(" TraditionalModel loaded from scripts/models/")
+        model.recipe_encoder = joblib.load("scripts/models/recipe_encoder.pkl")
+        print("TraditionalModel loaded from disk.")
         return model
 
     @staticmethod
     def __create():
         """
-        Create and train a new TraditionalModel instance.
+        Training a new TraditionalModel from scratch.
 
         Returns:
-            TraditionalModel: A newly trained model instance.
+            TraditionalModel: A trained model instance
         """
         model = TraditionalModel()
         model.__train()
@@ -138,14 +178,14 @@ class TraditionalModel(Model):
     @staticmethod
     def get_instance():
         """
-        Load a saved model if it exists; otherwise, train a new model.
+        Loading an existing model if available; otherwise, train a new one.
 
         Returns:
-            TraditionalModel: A ready-to-use model instance.
+            TraditionalModel: A ready-to-use model instance
         """
         try:
             return TraditionalModel.__load()
         except Exception as e:
-            print(f" Could not load TraditionalModel. Reason: {e}")
-            print(" Training new TraditionalModel...")
+            print(f"Could not load TraditionalModel. Reason: {e}")
+            print("Training new TraditionalModel...")
             return TraditionalModel.__create()

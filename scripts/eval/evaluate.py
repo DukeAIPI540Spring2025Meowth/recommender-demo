@@ -2,9 +2,6 @@ import pandas as pd
 import os
 import sys
 
-# Adding project root to path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
 from scripts.etl.etl import extract
 from scripts.util.model import Model
 from scripts.etl.etl import get_train_test_splits
