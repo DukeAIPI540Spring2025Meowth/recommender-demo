@@ -22,7 +22,7 @@ def main():
     print("Evaluating...")
     models = [
         NaiveModel.get_instance(),
-        # TraditionalModel.get_instance(),
+        TraditionalModel.get_instance(),
         # DeepLearningModel.get_instance()
     ]
     for model in models:
