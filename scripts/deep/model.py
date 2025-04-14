@@ -10,25 +10,24 @@ from sklearn.metrics import mean_squared_error
 
 class RecipeRecommenderGNN(nn.Module):
     """
-    Graph Neural Network for personalized recipe recommendation.
-
-    This model builds embeddings for users, recipes, and other related entities
-    (ingredients, tags, review words, etc.) using a heterogeneous graph structure.
-    It applies multi-layer SAGE-style convolutions for message passing across the graph.
+    A Heterogeneous Graph Neural Network for personalized recipe recommendations.
+    
+    It applies multiple layers of SAGEConv across different edge types
+    to learn user and recipe embeddings in a shared space.
     """
     def __init__(self, metadata, hidden_channels=64, out_channels=64, num_layers=2):
         super().__init__()
         self.embeddings = nn.ModuleDict()
 
-        # Create learnable embeddings for all node types except 'recipe'
+        # Initialize learnable embeddings for node types that don't have features (e.g. users, ingredients)
         for node_type in metadata[0]:
             if node_type != 'recipe':
                 self.embeddings[node_type] = nn.Embedding(100000, hidden_channels)
 
-        # Recipes already have features, so project them into the embedding space
+        # Project recipe features into hidden embedding space
         self.input_linear = Linear(9, hidden_channels)
 
-        # Define multiple heterogeneous graph convolution layers
+        # Build a stack of heterogeneous convolution layers
         self.convs = nn.ModuleList()
         for _ in range(num_layers):
             conv = HeteroConv({
@@ -37,49 +36,51 @@ class RecipeRecommenderGNN(nn.Module):
             }, aggr='sum')
             self.convs.append(conv)
 
-        # Linear projections for final user and recipe embeddings
+        # Linear layers to map final embeddings for prediction
         self.lin_user = Linear(hidden_channels, out_channels)
         self.lin_recipe = Linear(hidden_channels, out_channels)
 
     def forward(self, x_dict, edge_index_dict, num_nodes_dict=None):
         """
-        Perform forward pass and generate embeddings for each node type.
+        Perform message passing and return final node embeddings.
         """
         x_dict_out = {}
-        for node_type in x_dict:
+        for node_type, x in x_dict.items():
             if node_type == 'recipe':
-                x_dict_out[node_type] = self.input_linear(x_dict[node_type])
+                # Recipes already have features; project them to hidden space
+                x_dict_out[node_type] = self.input_linear(x)
             else:
-                x_dict_out[node_type] = self.embeddings[node_type](x_dict[node_type])
+                # Other nodes use learned embeddings
+                x_dict_out[node_type] = self.embeddings[node_type](x)
 
+        # Apply multi-layer GNN
         for conv in self.convs:
-            prev_dict = x_dict_out
-            x_dict_out_new = conv(prev_dict, edge_index_dict)
+            prev = x_dict_out
+            updated = conv(prev, edge_index_dict)
 
-            # Keep previous embeddings if this layer didn't update a node type
-            for node_type in prev_dict:
-                if node_type not in x_dict_out_new or x_dict_out_new[node_type] is None:
-                    x_dict_out_new[node_type] = prev_dict[node_type]
+            # Fallback to previous features if any node type is missing
+            for node_type in prev:
+                if node_type not in updated or updated[node_type] is None:
+                    updated[node_type] = prev[node_type]
 
-            x_dict_out = {k: F.relu(v) for k, v in x_dict_out_new.items()}
+            # Apply ReLU to all updated features
+            x_dict_out = {k: F.relu(v) for k, v in updated.items()}
 
         return x_dict_out
 
     def predict(self, x_user, x_recipe):
         """
-        Compute a relevance score between user and recipe embeddings using dot product.
+        Predict preference score between user and recipe embeddings.
+        Cosine similarity is used after L2 normalization.
         """
-        u = self.lin_user(x_user)
-        r = self.lin_recipe(x_recipe)
+        u = F.normalize(self.lin_user(x_user), p=2, dim=-1)
+        r = F.normalize(self.lin_recipe(x_recipe), p=2, dim=-1)
         return (u * r).sum(dim=-1)
 
 
 class RecommenderDeployWrapper(torch.nn.Module):
     """
-    TorchScript-compatible wrapper for deploying the recommendation model.
-
-    This wrapper takes the final user and recipe embeddings and allows computing
-    scores for a specific user against all recipes.
+    Wrapper module to allow deployment of the GNN model in TorchScript.
     """
     def __init__(self, model, user_embed, recipe_embed):
         super().__init__()
@@ -89,15 +90,17 @@ class RecommenderDeployWrapper(torch.nn.Module):
         self.recipe_embed = recipe_embed
 
     def forward(self, user_id: int):
+        """
+        Given a user ID, return preference scores for all recipes.
+        """
         u = self.user_proj(self.user_embed[user_id])
         r = self.recipe_proj(self.recipe_embed)
-        scores = (u * r).sum(dim=1)
-        return scores
+        return (u * r).sum(dim=1)
 
 
 def export_script_model(model, out_dict, path="recipe_gnn_script_100k.pt"):
     """
-    Export the trained model as a TorchScript file for production deployment.
+    Export the trained model using TorchScript for deployment.
     """
     wrapper = RecommenderDeployWrapper(
         model,
@@ -112,32 +115,38 @@ def export_script_model(model, out_dict, path="recipe_gnn_script_100k.pt"):
 
 def get_pos_neg_edges(data, num_neg=1):
     """
-    Generate positive and negative user-recipe interaction pairs.
-
-    Positive samples are from actual interactions.
-    Negative samples are generated by randomly pairing users with other recipes.
+    Sample positive and negative edges for training.
+    Returns user and recipe indices for both positive and negative interactions.
     """
     pos_u, pos_r = data['user', 'rates', 'recipe'].edge_index
     num_pos = pos_u.size(0)
+
+    # Create negative samples by pairing users with random recipes
     neg_u = pos_u.repeat_interleave(num_neg)
-    neg_r = torch.randint(0, data['recipe'].num_nodes, (num_pos * num_neg,), device=pos_u.device)
+    neg_r = torch.randint(
+        0, data['recipe'].num_nodes,
+        size=(num_pos * num_neg,),
+        device=pos_u.device
+    )
     return pos_u, pos_r, neg_u, neg_r
 
 
 def main():
-    # Load the heterogeneous recipe graph
+    """
+    Main training loop for the recipe recommender model.
+    """
+    # === Load data and move to device ===
     data = torch.load("recipe_graph_100k.pt")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     data = data.to(device)
 
-    # Ensure every expected edge type has a defined edge index
+    # Add missing edge types with empty edge indices
     for edge_type in data.metadata()[1]:
         if edge_type not in data.edge_index_dict or data.edge_index_dict[edge_type] is None:
             data.edge_index_dict[edge_type] = torch.empty((2, 0), dtype=torch.long, device=device)
 
-    # Initialize model and optimizer
     model = RecipeRecommenderGNN(metadata=data.metadata()).to(device)
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
     EPOCHS = 10
     print("\nStarting training...\n")
@@ -147,30 +156,27 @@ def main():
         optimizer.zero_grad()
         start = time.time()
 
-        # Build input feature dictionaries
+        # Construct input features
         x_dict = {}
         for node_type in data.metadata()[0]:
             if node_type == 'recipe':
                 x_dict[node_type] = data[node_type].x
             else:
-                if node_type not in data.num_nodes_dict:
-                    raise ValueError(f"Node type '{node_type}' not found in data.num_nodes_dict.")
                 x_dict[node_type] = torch.arange(data.num_nodes_dict[node_type], device=device)
 
-        # Generate updated embeddings
+        # Forward pass
         out_dict = model(x_dict, data.edge_index_dict, data.num_nodes_dict)
 
-        # Generate positive and negative training pairs
+        # Get positive and negative samples
         pos_u, pos_r, neg_u, neg_r = get_pos_neg_edges(data)
 
         pos_scores = model.predict(out_dict['user'][pos_u], out_dict['recipe'][pos_r])
         neg_scores = model.predict(out_dict['user'][neg_u], out_dict['recipe'][neg_r])
 
-        # Create binary labels and scores for classification
+        # Create binary labels and compute loss
         labels = torch.cat([torch.ones_like(pos_scores), torch.zeros_like(neg_scores)])
         scores = torch.cat([pos_scores, neg_scores])
 
-        # Compute loss and update weights
         loss = F.binary_cross_entropy_with_logits(scores, labels)
         loss.backward()
         optimizer.step()
@@ -179,29 +185,28 @@ def main():
 
     print("\nTraining complete!")
 
-    # Export the final model
+    # === Export model and embeddings ===
     print("Exporting model...")
     model.eval()
-
-    x_dict = {}
-    for node_type in data.metadata()[0]:
-        if node_type == 'recipe':
-            x_dict[node_type] = data[node_type].x
-        else:
-            x_dict[node_type] = torch.arange(data.num_nodes_dict[node_type], device=device)
+    x_dict = {
+        node_type: (
+            data[node_type].x if node_type == 'recipe'
+            else torch.arange(data.num_nodes_dict[node_type], device=device)
+        )
+        for node_type in data.metadata()[0]
+    }
 
     final_embs = model(x_dict, data.edge_index_dict, data.num_nodes_dict)
     export_script_model(model, final_embs)
 
-    # Save model checkpoint for later evaluation
+    # Save raw PyTorch checkpoint
     torch.save(model.state_dict(), "recipe_model.pt")
 
 
 class RecipeGNNModel:
     """
-    Wrapper around RecipeRecommenderGNN for evaluation using a shared interface.
+    Wrapper for evaluating a trained GNN model using internal index-based test data.
     """
-
     def __init__(self, model, data, device):
         self.model = model.eval()
         self.data = data
@@ -209,29 +214,49 @@ class RecipeGNNModel:
         self.out_dict = self._generate_embeddings()
 
     def _generate_embeddings(self):
-        x_dict = {}
-        for node_type in self.data.metadata()[0]:
-            if node_type == 'recipe':
-                x_dict[node_type] = self.data[node_type].x
-            else:
-                x_dict[node_type] = torch.arange(self.data.num_nodes_dict[node_type], device=self.device)
+        """
+        Generate final embeddings for all nodes in the graph.
+        """
+        x_dict = {
+            node_type: (
+                self.data[node_type].x if node_type == 'recipe'
+                else torch.arange(self.data.num_nodes_dict[node_type], device=self.device)
+            )
+            for node_type in self.data.metadata()[0]
+        }
 
         return self.model(x_dict, self.data.edge_index_dict, self.data.num_nodes_dict)
 
-    def evaluate(self):
+    def evaluate_from_index(self, test_df):
         """
-        Compute RMSE on all positive user-recipe edges.
+        Evaluate model predictions using RMSE against ground truth ratings.
+        
+        Args:
+            test_df (pd.DataFrame): DataFrame with 'u', 'i', and 'rating' columns.
+        
+        Returns:
+            float: Root Mean Squared Error (RMSE)
         """
-        pos_u, pos_r = self.data['user', 'rates', 'recipe'].edge_index
+        # Remove out-of-bound user/recipe indices
+        test_df = test_df[
+            (test_df['u'] < self.out_dict['user'].shape[0]) &
+            (test_df['i'] < self.out_dict['recipe'].shape[0])
+        ].copy()
+
+        if test_df.empty:
+            raise ValueError("No valid test rows found after filtering index bounds.")
+
+        user_idx = torch.tensor(test_df['u'].values, dtype=torch.long, device=self.device)
+        recipe_idx = torch.tensor(test_df['i'].values, dtype=torch.long, device=self.device)
+        true_ratings = test_df['rating'].values
 
         with torch.no_grad():
-            pred_scores = self.model.predict(
-                self.out_dict['user'][pos_u],
-                self.out_dict['recipe'][pos_r]
-            ).sigmoid()  # Convert logits to probabilities
+            preds = self.model.predict(
+                self.out_dict['user'][user_idx],
+                self.out_dict['recipe'][recipe_idx]
+            ).sigmoid() * 5.0  # Scale to match rating range
 
-        true_scores = torch.ones_like(pred_scores)
-        rmse = mean_squared_error(true_scores.cpu(), pred_scores.cpu(), squared=False)
+        rmse = mean_squared_error(true_ratings, preds.cpu().numpy(), squared=False)
         return rmse
 
 
