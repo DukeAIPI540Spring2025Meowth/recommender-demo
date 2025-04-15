@@ -2,12 +2,12 @@ import streamlit as st
 import pandas as pd
 from streamlit_star_rating import st_star_rating
 from scripts.traditional.model import TraditionalModel
+from scripts.etl.etl import extract
 
 # Initialize session state for dataframes if not already done
 if 'recipes_df' not in st.session_state:
     # Load the recipes and reviews data
-    recipes_df = pd.read_csv('data/recipes.csv')
-    reviews_df = pd.read_csv('data/reviews.csv')
+    recipes_df, reviews_df = extract()
     
     # Sample 20 recipes randomly
     recipes_df = recipes_df.sample(n=50, random_state=42)
