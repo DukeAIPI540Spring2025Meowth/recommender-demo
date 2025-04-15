@@ -12,7 +12,8 @@ seaborn >= 0.13.0
 
 # Machine Learning
 scikit-learn >= 1.6.1
-
+torch >= 2.6.0
+torch-geometric >= 2.6.1
 
 # Application development
 streamlit >= 1.44.1
