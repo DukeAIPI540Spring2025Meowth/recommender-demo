@@ -53,10 +53,11 @@ This project implements four different approaches to recipe recommendation:
 3. **Neural Collaborative Filtering (NCF)**: A deep learning approach that combines matrix factorization with neural networks. The model:
    - Uses user and item embeddings to capture latent features
    - Implements a multi-layer perceptron (MLP) to learn complex interactions
-   - Combines dot product and MLP outputs for final predictions
+   - Adds user and item bias terms to model global rating tendencies
    - Supports GPU/MPS acceleration for faster training
-   - Currently achieves an RMSE of 6.67 after 100 epochs of training
-   - Trains on the full training set, unlike the previous deep learning approach.
+   - Currently achieves an RMSE of 0.55 after 10 epochs of training
+   - Trains on the full training set, unlike the previous deep learning approach
+   - Supports Optuna-based hyperparameter tuning for embedding size, MLP depth, and learning rate
 
 4. **Traditional Approach**: Implements a collaborative filtering system using K-Nearest Neighbors (KNN) regression with feature engineering. The model:
    - Uses average user and recipe ratings as features
@@ -78,15 +79,9 @@ The system is evaluated using Root Mean Square Error (RMSE) as the primary metri
 
 **Deep Learning Approach:** 0.53 RMSE
 
-**Neural Collaborative Filtering:** 6.67 RMSE (needs improvement)
+**Neural Collaborative Filtering:** 0.55 RMSE
 
 **Traditional Approach:** 0.58 RMSE
-
-Note: The neural collaborative filtering approach currently has higher error rates than expected. Potential improvements could include:
-- Hyperparameter tuning (learning rate, embedding dimensions, hidden layer sizes)
-- Adjusting the model architecture
-- Implementing better regularization techniques
-- Using a more sophisticated training strategy
 
 Note: The original GNN-based deep learning approach currently has some data leakage in its implementation that would need to be addressed in future revisions to ensure proper evaluation.
 
