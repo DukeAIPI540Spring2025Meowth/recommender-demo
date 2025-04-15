@@ -10,7 +10,7 @@ if 'recipes_df' not in st.session_state:
     reviews_df = pd.read_csv('data/reviews.csv')
     
     # Sample 20 recipes randomly
-    recipes_df = recipes_df.sample(n=10, random_state=42)
+    recipes_df = recipes_df.sample(n=50, random_state=42)
     
     # Filter reviews to only include reviews for the sampled recipes
     reviews_df = reviews_df[reviews_df['recipe_id'].isin(recipes_df['id'])]
@@ -254,6 +254,7 @@ for index, row in recipes_df.head(st.session_state.num_entries).iterrows():
             st.markdown(f"<h4>Instructions for {recipe_name}:</h4>", unsafe_allow_html=True)
             st.markdown(formatted_steps, unsafe_allow_html=True)
 
-# Load more button
-if st.button("Load more"):
-    load_more()  # Call the function to load more entries
+if st.session_state.num_entries < len(recipes_df):
+    # Load more button
+    if st.button("Load more"):
+        load_more()  # Call the function to load more entries
