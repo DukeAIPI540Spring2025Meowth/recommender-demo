@@ -88,7 +88,7 @@ Note: The neural collaborative filtering approach currently has higher error rat
 - Implementing better regularization techniques
 - Using a more sophisticated training strategy
 
-Note: The deep learning approach currently has some data leakage in its implementation that would need to be addressed in future revisions to ensure proper evaluation.
+Note: The original GNN-based deep learning approach currently has some data leakage in its implementation that would need to be addressed in future revisions to ensure proper evaluation.
 
 ### Approach Selection
 The traditional collaborative filtering approach was selected for the production application because:
