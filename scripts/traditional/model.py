@@ -140,11 +140,11 @@ class TraditionalModel(Model):
         """
         Saving the trained model, encoders, and scaler to disk.
         """
-        os.makedirs("scripts/models", exist_ok=True)
-        joblib.dump(self.model, "scripts/models/traditional_model.pkl")
-        joblib.dump(self.scaler, "scripts/models/scaler.pkl")
-        joblib.dump(self.user_encoder, "scripts/models/user_encoder.pkl")
-        joblib.dump(self.recipe_encoder, "scripts/models/recipe_encoder.pkl")
+        os.makedirs("models", exist_ok=True)
+        joblib.dump(self.model, "models/traditional_model.pkl")
+        joblib.dump(self.scaler, "models/scaler.pkl")
+        joblib.dump(self.user_encoder, "models/user_encoder.pkl")
+        joblib.dump(self.recipe_encoder, "models/recipe_encoder.pkl")
         print("Model, scaler, and encoders saved.")
 
     @staticmethod
@@ -156,10 +156,10 @@ class TraditionalModel(Model):
             TraditionalModel: A loaded model instance
         """
         model = TraditionalModel()
-        model.model = joblib.load("scripts/models/traditional_model.pkl")
-        model.scaler = joblib.load("scripts/models/scaler.pkl")
-        model.user_encoder = joblib.load("scripts/models/user_encoder.pkl")
-        model.recipe_encoder = joblib.load("scripts/models/recipe_encoder.pkl")
+        model.model = joblib.load("models/traditional_model.pkl")
+        model.scaler = joblib.load("models/scaler.pkl")
+        model.user_encoder = joblib.load("models/user_encoder.pkl")
+        model.recipe_encoder = joblib.load("models/recipe_encoder.pkl")
         print("TraditionalModel loaded from disk.")
         return model
 

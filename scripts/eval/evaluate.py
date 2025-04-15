@@ -4,7 +4,6 @@ from ..util.model import Model
 from ..etl.etl import get_train_test_splits
 from ..naive.model import NaiveModel
 from ..traditional.model import TraditionalModel
-from ..deep.model import DeepLearningModel
 
 def evaluate_model(model: Model, model_name: str, X_test: pd.DataFrame, y_test: pd.DataFrame) -> None:
     '''
@@ -22,8 +21,7 @@ def main():
     print("Evaluating...")
     models = [
         NaiveModel.get_instance(),
-        TraditionalModel.get_instance(),
-        # DeepLearningModel.get_instance()
+        TraditionalModel.get_instance()
     ]
     for model in models:
         evaluate_model(model, model.__class__.__name__, X_test, y_test)

@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from streamlit_star_rating import st_star_rating
-from scripts.naive.model import NaiveModel
+from scripts.traditional.model import TraditionalModel
 
 # Initialize session state for dataframes if not already done
 if 'recipes_df' not in st.session_state:
@@ -10,13 +10,13 @@ if 'recipes_df' not in st.session_state:
     reviews_df = pd.read_csv('data/reviews.csv')
     
     # Sample 20 recipes randomly
-    recipes_df = recipes_df.sample(n=20, random_state=42)
+    recipes_df = recipes_df.sample(n=10, random_state=42)
     
     # Filter reviews to only include reviews for the sampled recipes
     reviews_df = reviews_df[reviews_df['recipe_id'].isin(recipes_df['id'])]
     
     # Initialize the NaiveModel
-    model = NaiveModel()
+    model = TraditionalModel.get_instance()
     
     # Calculate mean ratings
     mean_ratings = reviews_df.groupby('recipe_id')['rating'].mean().reset_index() 
@@ -26,7 +26,7 @@ if 'recipes_df' not in st.session_state:
     recipes_df = recipes_df.merge(mean_ratings, left_on='id', right_on='recipe_id', how='left')  
     
     # Initialize user_id
-    user_id = 'test_user'
+    user_id = 2312
     
     # Create input data for prediction
     input_data = pd.DataFrame({
@@ -159,6 +159,18 @@ st.markdown("""
 # ------------------------ App UI ------------------------
 st.title("🥗 RecipeMe – Smart Recipe Recommender")
 
+# Add transparency statement
+st.markdown("""
+<div style='background-color: #2b2b2b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;'>
+    <p style='color: #bbbbbb; margin: 0;'>
+        Our recommendations are powered by collaborative filtering, which means we suggest recipes based on patterns in how people like you have rated similar recipes. 
+        The more you rate recipes, the better our recommendations become at understanding your preferences!
+    </p>
+    <p style='color: #bbbbbb; margin: 0; margin-top: 0.5rem; font-size: 0.9em;'>
+        Note: While we recommend recipes based on preferences, we don't make health claims or provide medical advice. Please consult healthcare professionals for dietary guidance.
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
 # Display recipes
 st.subheader("🍽️ Recommended Recipes")
