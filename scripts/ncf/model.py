@@ -129,10 +129,8 @@ class DeepModel(Model):
         with torch.no_grad():
             for batch_user_ids, batch_item_ids in dataloader:
                 predictions = self.ncf(batch_user_ids, batch_item_ids).squeeze()
-                print('Shape of predictions:', predictions.shape)
                 all_predictions = np.concatenate((all_predictions, predictions.cpu().numpy().flatten()))
         
-        print('Shape of predictions:', all_predictions.shape)
         return all_predictions
 
     def __save(self):
