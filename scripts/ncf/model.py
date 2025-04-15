@@ -21,11 +21,8 @@ import numpy as np
 from torch.utils.data import DataLoader, TensorDataset
 import os
 import optuna
-
-# These two functions come from your project
 from ..etl.etl import extract, get_train_test_splits
 from ..util.model import Model
-
 
 def get_best_device():
     """
