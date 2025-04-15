@@ -99,13 +99,15 @@ This project builds upon several previous approaches to recipe recommendation:
 ## Streamlit Application
 
 A user-friendly web interface for the recommender system is available at:
-https://duke-aipi540-spring2025-meowth-recommender.streamlit.app/
+https://recommender-demo-518487429487.us-central1.run.app/
 
 The Streamlit application allows users to:
 - Search for recipes
 - Get personalized recommendations
 - View recipe details and ratings
 - Interact with the recommender system in real-time
+
+Note that with the current hardware configuration in GCP (2GB memory, 1 CPU), the app takes up to a minute to load.
 
 ## Ethics Statement
 

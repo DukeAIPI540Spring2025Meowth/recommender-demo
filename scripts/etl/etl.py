@@ -1,6 +1,9 @@
 import kagglehub
 import pandas as pd
 import os
+import zipfile
+import shutil
+
 def extract() -> tuple[pd.DataFrame, pd.DataFrame]:
     '''
     Extract the data from the source. First checks if data exists in data/ directory,
@@ -23,6 +26,24 @@ def extract() -> tuple[pd.DataFrame, pd.DataFrame]:
         
         # Load from Kaggle
         kaggle_path = kagglehub.dataset_download("shuyangli94/food-com-recipes-and-user-interactions")
+        
+        # Handle zip file if downloaded
+        if kaggle_path.endswith('.zip'):
+            print("Extracting zip file...")
+            with zipfile.ZipFile(kaggle_path, 'r') as zip_ref:
+                # Extract to a temporary directory
+                temp_dir = 'temp_extract'
+                zip_ref.extractall(temp_dir)
+                # Find the CSV files in the extracted directory
+                for root, _, files in os.walk(temp_dir):
+                    for file in files:
+                        if file.endswith('.csv'):
+                            shutil.copy(os.path.join(root, file), data_dir)
+                # Clean up temporary directory
+                shutil.rmtree(temp_dir)
+            # Update kaggle_path to point to the data directory
+            kaggle_path = data_dir
+        
         recipes_df = pd.read_csv(f'{kaggle_path}/RAW_recipes.csv')
         reviews_df = pd.read_csv(f'{kaggle_path}/RAW_interactions.csv')
         reviews_train_df = pd.read_csv(f'{kaggle_path}/interactions_train.csv')
