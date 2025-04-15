@@ -42,6 +42,21 @@ python -m scripts.eval.evaluate
 
 This will run the evaluation module and output the performance metrics of the recommender system.
 
+## Problem
+
+Recommender systems are essential for helping users navigate large content libraries. On platforms like [food.com](https://www.food.com/), with tens of thousands of recipes, it can be difficult for users to find meals that match their preferences, dietary needs, and skill levels.
+
+This project tackles the problem of personalized recipe recommendation - predicting how much a user will like a given recipe based on their past reviews.
+
+**Challenges include:**
+- Sparse user-recipe interaction data
+- Diverse recipe features (ingredients, prep time, nutrition)
+- Capturing non-linear, personalized preferences
+
+**Why build this?**
+Existing approaches like popularity-based methods or ingredient filtering often fail to capture the complexity of human taste. Our goal is to build a flexible, accurate, and extensible recommendation engine that adapts to user preferences and scales well.
+
+
 ## Modeling Approaches
 
 This project implements four different approaches to recipe recommendation:
@@ -65,6 +80,8 @@ This project implements four different approaches to recipe recommendation:
    - Scales and encodes features for better performance
    - Achieves an RMSE of 0.58
    - Can handle any user ID or recipe ID in the dataset
+  
+The Traditional collaborative filtering model is more economical and sustainable to run as a production application. Unlike deep learning models, it requires significantly less computational power, making it faster to train and more efficient at inference time. This allows it to handle real-time user requests without the need for GPUs or high-memory instances, reducing infrastructure costs and energy consumption—making it an ideal choice for scalable, long-term deployment.
 
 ## Evaluation
 
