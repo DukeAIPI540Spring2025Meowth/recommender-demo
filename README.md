@@ -44,13 +44,26 @@ This will run the evaluation module and output the performance metrics of the re
 
 ## Modeling Approaches
 
-This project implements three different approaches to recipe recommendation:
+This project implements four different approaches to recipe recommendation:
 
 1. **Naive Approach**: A simple baseline that recommends the most popular recipes based on average ratings and number of reviews.
 
-2. **Deep Learning Approach**: Uses a neural network to learn user and recipe embeddings, trained on a 100K sample of the dataset. This approach leverages modern deep learning techniques to capture complex patterns in user-recipe interactions.
+2. **Deep Learning Approach**: Uses a graph neural network to learn user and recipe embeddings, trained on a 100K sample of the dataset. This approach leverages modern deep learning techniques to capture complex patterns in user-recipe interactions.
 
-3. **Traditional Approach**: Implements a collaborative filtering system using matrix factorization techniques. This approach is more robust as it can handle any user ID or recipe ID in the dataset, unlike the deep learning approach which is limited to the training sample.
+3. **Neural Collaborative Filtering (NCF)**: A deep learning approach that combines matrix factorization with neural networks. The model:
+   - Uses user and item embeddings to capture latent features
+   - Implements a multi-layer perceptron (MLP) to learn complex interactions
+   - Combines dot product and MLP outputs for final predictions
+   - Supports GPU/MPS acceleration for faster training
+   - Currently achieves an RMSE of 6.67 after 100 epochs of training
+   - Trains on the full training set, unlike the previous deep learning approach.
+
+4. **Traditional Approach**: Implements a collaborative filtering system using K-Nearest Neighbors (KNN) regression with feature engineering. The model:
+   - Uses average user and recipe ratings as features
+   - Implements KNN regression with optimized hyperparameters
+   - Scales and encodes features for better performance
+   - Achieves an RMSE of 0.58
+   - Can handle any user ID or recipe ID in the dataset
 
 ## Evaluation
 
@@ -65,9 +78,17 @@ The system is evaluated using Root Mean Square Error (RMSE) as the primary metri
 
 **Deep Learning Approach:** 0.53 RMSE
 
+**Neural Collaborative Filtering:** 6.67 RMSE (needs improvement)
+
 **Traditional Approach:** 0.58 RMSE
 
-Note: The deep learning approach currently has some data leakage in its implementation that would need to be addressed in future revisions to ensure proper evaluation.
+Note: The neural collaborative filtering approach currently has higher error rates than expected. Potential improvements could include:
+- Hyperparameter tuning (learning rate, embedding dimensions, hidden layer sizes)
+- Adjusting the model architecture
+- Implementing better regularization techniques
+- Using a more sophisticated training strategy
+
+Note: The original GNN-based deep learning approach currently has some data leakage in its implementation that would need to be addressed in future revisions to ensure proper evaluation.
 
 ### Approach Selection
 The traditional collaborative filtering approach was selected for the production application because:
