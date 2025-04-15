@@ -86,7 +86,7 @@ class DeepModel(Model):
         # Training setup
         criterion = nn.MSELoss()
         optimizer = optim.Adam(self.ncf.parameters(), lr=0.001)
-        num_epochs = 20
+        num_epochs = 100
         
         # Training loop
         for epoch in range(num_epochs):
@@ -142,7 +142,7 @@ class DeepModel(Model):
             'model_state_dict': self.ncf.state_dict(),
             'user_encoder': self.user_encoder,
             'item_encoder': self.item_encoder
-        }, 'models/deep_model.pth')
+        }, 'models/ncf_model.pth')
         # Move model back to original device
         self.ncf.to(self.ncf.device)
 
@@ -163,7 +163,7 @@ class DeepModel(Model):
 
     @staticmethod
     def __load():
-        checkpoint = torch.load('models/deep_model.pth', weights_only=False)
+        checkpoint = torch.load('models/ncf_model.pth', weights_only=False)
         model = DeepModel()
         model.ncf.load_state_dict(checkpoint['model_state_dict'])
         model.user_encoder = checkpoint['user_encoder']
