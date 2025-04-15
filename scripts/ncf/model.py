@@ -178,6 +178,16 @@ class EnhancedNCFModel(Model):
 
         return np.array(predictions)
 
+    def evaluate(self, X: pd.DataFrame, y: pd.Series) -> float:
+        """
+        Calculates RMSE for a given test set.
+        """
+        
+        preds = self.predict(X)
+        
+        return np.sqrt(np.mean((preds - y.values) ** 2))
+
+
     def _save(self):
         """
         Save model and encoders to disk
@@ -255,7 +265,7 @@ def main():
     # Evaluate
     _, X_test, _, y_test = get_train_test_splits()
     rmse = final_model.evaluate(X_test, y_test)
-    print(f"✅ Final RMSE: {rmse:.4f}")
+    print(f"Final RMSE: {rmse:.4f}")
 
 
 if __name__ == "__main__":
