@@ -23,7 +23,6 @@ def main():
     models = [
         NaiveModel.get_instance(),
         TraditionalModel.get_instance(),
-        DeepModel.get_instance(),
         EnhancedNCFModel.get_instance()
     ]
     for model in models:
