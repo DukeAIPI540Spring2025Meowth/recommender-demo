@@ -5,14 +5,16 @@ FROM python:3.12-slim
 WORKDIR /app
 
 # Copy requirements file
-COPY requirements.txt .
+COPY requirements-st.txt .
 
 # Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements-st.txt
 
 # Copy the application code
-COPY . .
-
+COPY ./models ./models
+COPY ./scripts ./scripts
+COPY ./main.py ./main.py
+COPY ./data ./data
 # Expose the port Streamlit runs on
 EXPOSE 8501
 

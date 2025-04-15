@@ -1,0 +1,11 @@
+streamlit >= 1.44.1
+st-star-rating == 0.0.6
+
+# Data
+kagglehub >= 0.3.11
+numpy >= 2.2.4
+pandas >= 2.2.3
+
+# Machine Learning
+joblib >= 1.4.2
+scikit-learn >= 1.6.1
